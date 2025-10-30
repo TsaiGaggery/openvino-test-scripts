@@ -1,0 +1,100 @@
+{
+  "models": [
+    {
+      "name": "Mistral-7B-Instruct-v0.3",
+      "model_id": "OpenVINO/Mistral-7B-Instruct-v0.3-int4-cw-ov",
+      "size": "7B",
+      "quantization": "INT4-CW",
+      "recommended_devices": ["GPU", "NPU", "CPU"],
+      "description": "Mistral 7B model with channel-wise INT4 quantization",
+      "enabled": false
+    },
+    {
+      "name": "Qwen3-1.7B",
+      "model_id": "OpenVINO/Qwen3-1.7B-int4-ov",
+      "size": "1.7B",
+      "quantization": "INT4",
+      "recommended_devices": ["NPU", "GPU", "CPU"],
+      "description": "Qwen3 1.7B - optimized for NPU, smallest model",
+      "enabled": true
+    },
+    {
+      "name": "Qwen3-4B",
+      "model_id": "OpenVINO/Qwen3-4B-int4-ov",
+      "size": "4B",
+      "quantization": "INT4",
+      "recommended_devices": ["NPU", "GPU", "CPU"],
+      "description": "Qwen3 4B - good balance for NPU",
+      "enabled": false
+    },
+    {
+      "name": "Qwen3-8B",
+      "model_id": "OpenVINO/Qwen3-8B-int4-cw-ov",
+      "size": "8B",
+      "quantization": "INT4-CW",
+      "recommended_devices": ["GPU", "NPU", "CPU"],
+      "description": "Qwen3 8B - larger model with channel-wise quantization",
+      "enabled": false
+    },
+    {
+      "name": "Phi-3-mini-128k",
+      "model_id": "OpenVINO/Phi-3-mini-128k-instruct-int4-ov",
+      "size": "3.8B",
+      "quantization": "INT4",
+      "recommended_devices": ["NPU", "GPU", "CPU"],
+      "description": "Microsoft Phi-3 mini with 128k context window",
+      "enabled": false
+    },
+    {
+      "name": "TinyLlama-1.1B",
+      "model_id": "OpenVINO/TinyLlama-1.1B-Chat-v1.0-int4-ov",
+      "size": "1.1B",
+      "quantization": "INT4",
+      "recommended_devices": ["NPU", "GPU", "CPU"],
+      "description": "TinyLlama - very small and fast",
+      "enabled": true
+    },
+    {
+      "name": "Mistral-7B-Instruct-v0.2",
+      "model_id": "OpenVINO/Mistral-7B-Instruct-v0.2-int4-cw-ov",
+      "size": "7B",
+      "quantization": "INT4-CW",
+      "recommended_devices": ["GPU", "NPU", "CPU"],
+      "description": "Mistral 7B v0.2 - previous version",
+      "enabled": false
+    },
+    {
+      "name": "Llama-2-7B-Chat",
+      "model_id": "OpenVINO/Llama-2-7b-chat-int4-ov",
+      "size": "7B",
+      "quantization": "INT4",
+      "recommended_devices": ["GPU", "NPU", "CPU"],
+      "description": "Meta Llama 2 7B chat model",
+      "enabled": false
+    }
+  ],
+  "benchmark_config": {
+    "test_prompts": [
+      "What is artificial intelligence?",
+      "Explain machine learning in simple terms.",
+      "What are neural networks?",
+      "Describe deep learning.",
+      "What is the difference between AI and ML?"
+    ],
+    "generation_config": {
+      "max_new_tokens": 100,
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "do_sample": true
+    },
+    "devices_to_test": ["CPU", "GPU", "NPU"],
+    "run_warmup": true,
+    "cache_dir": "./ov_cache"
+  },
+  "notes": {
+    "how_to_enable": "Set 'enabled': true for models you want to benchmark",
+    "recommended_start": "Start with 1-2 small models (1-4B) to test quickly",
+    "npu_optimization": "Models with 'NPU' in recommended_devices are optimized for Intel NPU",
+    "size_guide": "1-2B: Fastest on NPU, 3-5B: Good balance, 7-8B: Best quality but slower"
+  }
+}
