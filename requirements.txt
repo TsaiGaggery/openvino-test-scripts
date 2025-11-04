@@ -1,0 +1,9 @@
+# Requirements for benchmark_devices.py
+# OpenVINO toolkit for AI inference
+openvino>=2025.0.0
+
+# OpenVINO GenAI for generative AI models
+openvino-genai>=2025.0.0
+
+# HuggingFace Hub for model downloads
+huggingface-hub>=0.20.0
