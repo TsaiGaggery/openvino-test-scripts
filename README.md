@@ -4,6 +4,87 @@
 
 This revised benchmark script allows you to compare the performance of multiple LLM models across different hardware devices (CPU, GPU, NPU) using OpenVINO. It reads model configurations from `benchmark.json` and generates comprehensive comparison reports.
 
+## 🚀 Quick Start - Single Model Test
+
+**NEW!** Test any model quickly without editing JSON files:
+
+```bash
+python3 quick_benchmark.py OpenVINO/TinyLlama-1.1B-Chat-v1.0-int8-ov
+```
+
+This will:
+- ✅ Test the model on CPU, GPU, and NPU
+- ✅ Run **5 diverse test prompts**:
+  1. "What is the capital of France?"
+  2. "Explain quantum computing in simple terms."
+  3. "Write a short poem about artificial intelligence."
+  4. "What are the main differences between Python and JavaScript?"
+  5. "Describe the process of photosynthesis."
+- ✅ Generate `benchmark_report.html` with results
+- ✅ **Does NOT modify your `benchmark.json`** - uses temporary config file
+
+**More examples:**
+```bash
+python3 quick_benchmark.py OpenVINO/Phi-3.5-vision-instruct-int8-ov
+python3 quick_benchmark.py OpenVINO/Mistral-7B-Instruct-v0.3-int8-ov
+python3 quick_benchmark.py OpenVINO/Qwen2.5-1.5B-Instruct-int8-ov
+```
+
+### Custom Config File
+
+You can also use a custom config file with the main benchmark script:
+
+```bash
+# Use custom config instead of benchmark.json
+python3 benchmark_devices.py --config my_custom_config.json
+
+# Or short form
+python3 benchmark_devices.py -c my_custom_config.json
+```
+
+**No configuration needed!** Just provide the model ID and go! 🎯
+
+---
+
+## ❓ FAQ - Do I Need to Convert Models?
+
+**Short answer: NO! ✅**
+
+All models from the `OpenVINO/` namespace on HuggingFace are **already pre-converted** to OpenVINO IR format with INT4/INT8/FP16 quantization applied.
+
+**What you get:**
+- ✅ Pre-converted OpenVINO IR models (`.xml` + `.bin` files)
+- ✅ Already quantized (INT4/INT8/FP16 - ready for NPU/GPU/CPU)
+- ✅ Optimized with NNCF weight compression
+- ✅ Compatible with OpenVINO 2024.2.0+
+
+**You DO NOT need to:**
+- ❌ Run `optimum-cli export openvino`
+- ❌ Convert from PyTorch/ONNX
+- ❌ Apply quantization yourself
+- ❌ Use `nncf.compress_weights`
+
+**Just download and use!** The scripts automatically use `snapshot_download()` to fetch ready-to-use models.
+
+### If You Want to Convert Your Own Models
+
+Only needed if you're using models **NOT** from the OpenVINO hub:
+
+```bash
+# Install optimum-cli
+pip install optimum[openvino,nncf]
+
+# Convert and quantize
+optimum-cli export openvino \
+  --model TinyLlama/TinyLlama-1.1B-Chat-v1.0 \
+  --weight-format int8 \
+  --output ./my_custom_model
+```
+
+But for this project, **stick to `OpenVINO/` models** - they're already optimized! 🎯
+
+---
+
 ## Key Features
 
 ### ✨ New Capabilities

@@ -1037,9 +1037,16 @@ def main():
     print("🚀 OpenVINO Multi-Model Device Benchmark (NPU Optimized)")
     print("=" * 100)
     
+    # Parse command-line arguments
+    import argparse
+    parser = argparse.ArgumentParser(description='Benchmark OpenVINO models across devices')
+    parser.add_argument('--config', '-c', default='benchmark.json',
+                        help='Path to config JSON file (default: benchmark.json)')
+    args = parser.parse_args()
+    
     # Load configuration
-    print("\n[1/6] Loading configuration...")
-    config = load_benchmark_config()
+    print(f"\n[1/6] Loading configuration from {args.config}...")
+    config = load_benchmark_config(args.config)
     
     # Get enabled models
     enabled_models = [m for m in config['models'] if m.get('enabled', False)]
@@ -1054,9 +1061,13 @@ def main():
         print(f"   • {model['name']} ({model['size']}) - {model['quantization']}")
         
         # Warn about large models on NPU
-        size_val = float(model['size'].replace('B', ''))
-        if 'NPU' in config['benchmark_config']['devices_to_test'] and size_val > 5:
-            print(f"     ⚠️  Note: {model['size']} may not be optimal for NPU (prefer <5B)")
+        try:
+            size_val = float(model['size'].replace('B', '').replace('M', ''))
+            if 'NPU' in config['benchmark_config']['devices_to_test'] and size_val > 5:
+                print(f"     ⚠️  Note: {model['size']} may not be optimal for NPU (prefer <5B)")
+        except (ValueError, AttributeError):
+            # Skip size check if size is unknown or invalid
+            pass
     
     # Setup cache
     cache_dir = Path(config['benchmark_config']['cache_dir'])
