@@ -64,13 +64,55 @@ def load_benchmark_config(config_path="benchmark.json"):
         sys.exit(1)
 
 def download_model(model_id, model_name):
-    """Download model from HuggingFace"""
+    """Download model from HuggingFace or use local path (OpenVINO files only)"""
+    
+    # Check if model_id is a local path
+    model_path = Path(model_id).expanduser()
+    if model_path.exists() and model_path.is_dir():
+        # Check if it's a valid OpenVINO model directory
+        if (model_path / 'openvino_model.xml').exists() and (model_path / 'openvino_model.bin').exists():
+            print(f"\n📁 Using local model: {model_name}")
+            print(f"   Path: {model_path}")
+            return str(model_path)
+        else:
+            print(f"❌ Error: Local path exists but missing OpenVINO model files")
+            print(f"   Expected: openvino_model.xml and openvino_model.bin")
+            return None
+    
+    # Check for local path patterns that don't exist yet
+    if model_id.startswith('/') or model_id.startswith('~') or model_id.startswith('./'):
+        print(f"❌ Error: Local model path not found: {model_id}")
+        return None
+    
+    # Download from HuggingFace
     print(f"\n📥 Downloading {model_name}...")
     safe_name = model_name.replace(" ", "_").replace("-", "_").lower()
     model_dir = Path(f"models/{safe_name}")
     
     try:
-        local_dir = snapshot_download(repo_id=model_id, local_dir=str(model_dir))
+        # Only download OpenVINO model files, skip GGUF and other formats
+        # This prevents downloading multiple quantization variants
+        local_dir = snapshot_download(
+            repo_id=model_id, 
+            local_dir=str(model_dir),
+            allow_patterns=[
+                "*.xml",           # OpenVINO model definition
+                "*.bin",           # OpenVINO weights
+                "*.json",          # Config files
+                "*.txt",           # Text files (README, etc.)
+                "*.md",            # Markdown files
+                "tokenizer.model", # Tokenizer
+                "*.tiktoken"       # Tokenizer
+            ],
+            ignore_patterns=[
+                "*.gguf",          # Skip GGUF files (multiple quantizations)
+                "*.safetensors",   # Skip safetensors (PyTorch format)
+                "*.pt",            # Skip PyTorch files
+                "*.pth",           # Skip PyTorch files
+                "*.h5",            # Skip Keras/TF files
+                "*.msgpack"        # Skip other formats
+            ]
+        )
         print(f"✅ Model downloaded to: {local_dir}")
         return local_dir
     except Exception as e:

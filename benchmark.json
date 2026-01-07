@@ -1,180 +1,52 @@
 {
   "models": [
     {
-      "name": "Mistral-7B-Instruct-v0.3",
-      "model_id": "OpenVINO/Mistral-7B-Instruct-v0.3-int4-cw-ov",
-      "size": "7B",
-      "quantization": "INT4-CW",
+      "name": "Qwen2.5-3B-Instruct_int4_sym_group128_bp_none_dyn_stateful",
+      "model_id": "~/openvino-web/models/Qwen2.5-3B-Instruct_int4_sym_group128_bp_none_dyn_stateful",
+      "size": "3B",
+      "quantization": "INT4",
       "recommended_devices": ["GPU", "NPU", "CPU"],
-      "description": "Mistral 7B model with channel-wise INT4 quantization",
+      "description": "Qwen2.5-3B-Instruct_int4_sym_group128_bp_none_dyn_stateful",
       "enabled": true
     },
     {
-      "name": "Qwen3-1.7B",
-      "model_id": "OpenVINO/Qwen3-1.7B-int4-ov",
-      "size": "1.7B",
-      "quantization": "INT4",
-      "recommended_devices": ["GPU", "CPU"],
-      "description": "Qwen3 1.7B - Note: May have NPU compatibility issues",
-      "enabled": false,
-      "notes": "Known NPU compilation issue with some versions"
-    },
-    {
-      "name": "Qwen3-4B",
-      "model_id": "OpenVINO/Qwen3-4B-int4-ov",
-      "size": "4B",
-      "quantization": "INT4",
-      "recommended_devices": ["NPU", "GPU", "CPU"],
-      "description": "Qwen3 4B - good balance for NPU",
-      "enabled": true
-    },
-    {
-      "name": "Qwen3-8B",
-      "model_id": "OpenVINO/Qwen3-8B-int4-cw-ov",
-      "size": "8B",
-      "quantization": "INT4-CW",
-      "recommended_devices": ["GPU", "NPU", "CPU"],
-      "description": "Qwen3 8B - larger model with channel-wise quantization",
-      "enabled": true
-    },
-    {
-      "name": "Phi-3-mini-128k",
-      "model_id": "OpenVINO/Phi-3-mini-128k-instruct-int4-ov",
-      "size": "3.8B",
-      "quantization": "INT4",
-      "recommended_devices": ["NPU", "GPU", "CPU"],
-      "description": "Microsoft Phi-3 mini with 128k context window",
-      "enabled": true,
-      "notes": "✅ Verified available - excellent NPU performance"
-    },
-    {
-      "name": "TinyLlama-1.1B",
-      "model_id": "OpenVINO/TinyLlama-1.1B-Chat-v1.0-int4-ov",
-      "size": "1.1B",
-      "quantization": "INT4",
-      "recommended_devices": ["NPU", "GPU", "CPU"],
-      "description": "TinyLlama - very small and fast",
-      "enabled": true
-    },
-    {
-      "name": "Mistral-7B-Instruct-v0.2",
-      "model_id": "OpenVINO/Mistral-7B-Instruct-v0.2-int4-cw-ov",
-      "size": "7B",
-      "quantization": "INT4-CW",
-      "recommended_devices": ["GPU", "NPU", "CPU"],
-      "description": "Mistral 7B v0.2 - previous version",
-      "enabled": false
-    },
-    {
-      "name": "Llama-2-7B-Chat",
-      "model_id": "OpenVINO/llama-2-7b-chat-hf-int4-ov",
+      "name": "Llama-2-7b-chat-hf_int4_sym_group-1_dyn_stateful",
+      "model_id": "~/openvino-web/models/Llama-2-7b-chat-hf_int4_sym_group-1_dyn_stateful",
       "size": "7B",
       "quantization": "INT4",
-      "recommended_devices": ["GPU", "CPU"],
-      "description": "Meta Llama 2 7B chat model (corrected model ID)",
-      "enabled": false,
-      "notes": "Correct model ID uses 'llama-2-7b-chat-hf-int4-ov' (lowercase, with -hf)"
+      "recommended_devices": ["GPU", "NPU", "CPU"],
+      "description": "Llama-2-7b-chat-hf_int4_sym_group-1_dyn_stateful",
+      "enabled": true
     },
     {
-      "name": "Qwen2.5-1.5B-Instruct",
-      "model_id": "OpenVINO/Qwen2.5-1.5B-Instruct-int4-ov",
-      "size": "1.5B",
-      "quantization": "INT4",
-      "recommended_devices": ["NPU", "GPU", "CPU"],
-      "description": "Qwen 2.5 1.5B - Latest generation, excellent NPU performance",
-      "enabled": true,
-      "notes": "Verified available - case sensitive model ID"
-    },
-    {
-      "name": "Gemma-2B",
-      "model_id": "OpenVINO/gemma-2b-it-int4-ov",
+      "name": "Google-Gemma-2-2B-it_int4_sym_group128_dyn_stateful",
+      "model_id": "~/openvino-web/models/Google-Gemma-2-2B-it_int4_sym_group128_dyn_stateful",
       "size": "2B",
       "quantization": "INT4",
-      "recommended_devices": ["GPU", "CPU"],
-      "description": "Google Gemma 2B - Note: NPU compatibility issues detected",
-      "enabled": false,
-      "notes": "Known NPU compilation error - use GPU or CPU instead"
-    },
-    {
-      "name": "SmolLM-135M",
-      "model_id": "OpenVINO/SmolLM-135M-Instruct-int4-ov",
-      "size": "0.135B",
-      "quantization": "INT4",
       "recommended_devices": ["NPU", "GPU", "CPU"],
-      "description": "SmolLM 135M - Ultra small and very fast (alternative to 1.7B)",
-      "enabled": false,
-      "notes": "SmolLM-1.7B not available in OpenVINO hub, using 135M variant instead"
+      "description": "Google-Gemma-2-2B-it_int4_sym_group128_dyn_stateful",
+      "enabled": true
     },
     {
-      "name": "StableLM-Zephyr-3B",
-      "model_id": "OpenVINO/stablelm-zephyr-3b-int4-ov",
-      "size": "3B",
+      "name": "Qwen2.5-7B-Instruct_int4_sym_group128_dyn_stateful",
+      "model_id": "~/openvino-web/models/Qwen2.5-7B-Instruct_int4_sym_group128_dyn_stateful",
+      "size": "7B",
       "quantization": "INT4",
-      "recommended_devices": ["NPU", "GPU", "CPU"],
-      "description": "Stability AI StableLM Zephyr 3B - Chat model (alternative to 1.6B)",
-      "enabled": false,
-      "notes": "StableLM-2-1.6B not available, using Zephyr-3B instead"
-    },
-    {
-      "name": "Phi-3.5-mini-instruct",
-      "model_id": "OpenVINO/Phi-3.5-mini-instruct-int4-ov",
-      "size": "3.8B",
-      "quantization": "INT4",
-      "recommended_devices": ["NPU", "GPU", "CPU"],
-      "description": "Microsoft Phi-3.5 mini - Updated version with better performance",
-      "enabled": true,
-      "notes": "Verified available - excellent NPU compatibility"
-    },
-    {
-      "name": "Gemma-2-2B",
-      "model_id": "OpenVINO/gemma-2-2b-it-int4-ov",
-      "size": "2B",
-      "quantization": "INT4",
-      "recommended_devices": ["GPU", "CPU"],
-      "description": "Google Gemma 2 (v2) 2B - Note: May have NPU compatibility issues",
-      "enabled": false,
-      "notes": "Related to Gemma-2B, may have similar NPU issues"
-    },
-    {
-      "name": "Qwen2.5-3B-Instruct",
-      "model_id": "OpenVINO/Qwen2.5-3B-Instruct-int4-ov",
-      "size": "3B",
-      "quantization": "INT4",
-      "recommended_devices": ["NPU", "GPU", "CPU"],
-      "description": "Qwen 2.5 3B - Excellent mid-size option for NPU",
-      "enabled": false,
-      "notes": "Model not available in OpenVINO hub as of Nov 2025"
-    },
-    {
-      "name": "Llama-3.2-3B-Instruct",
-      "model_id": "OpenVINO/Llama-3.2-3B-Instruct-int4-ov",
-      "size": "3B",
-      "quantization": "INT4",
-      "recommended_devices": ["NPU", "GPU", "CPU"],
-      "description": "Meta Llama 3.2 3B - Smaller, efficient Llama 3 variant",
-      "enabled": false
-    },
-    {
-      "name": "Llama-3.2-1B-Instruct",
-      "model_id": "OpenVINO/Llama-3.2-1B-Instruct-int4-ov",
-      "size": "1B",
-      "quantization": "INT4",
-      "recommended_devices": ["NPU", "GPU", "CPU"],
-      "description": "Meta Llama 3.2 1B - Ultra efficient small Llama variant",
-      "enabled": false,
-      "notes": "Model not available in OpenVINO hub as of Nov 2025"
+      "recommended_devices": ["GPU", "NPU", "CPU"],
+      "description": "Qwen2.5-7B-Instruct_int4_sym_group128_dyn_stateful",
+      "enabled": true
     }
   ],
   "benchmark_config": {
     "test_prompts": [
-      "What is artificial intelligence?",
-      "Explain machine learning in simple terms.",
-      "What are neural networks?",
-      "Describe deep learning.",
-      "What is the difference between AI and ML?"
+      "Why Intel established OpenVino, why didn't they use existing framework to run AI models?",
+      "If you are the president of the US, how you resolve the healthcare system in the US?",
+      "Do you think EV car is the future? Will it replace gas car?",
+      "What is the most popular sports in the US?",
+      "Why NPU loading time is so long?"
     ],
     "generation_config": {
-      "max_new_tokens": 100,
+      "max_new_tokens": 5000,
       "temperature": 0.7,
       "top_p": 0.9,
       "do_sample": true
@@ -188,40 +60,6 @@
     "recommended_start": "Start with 1-2 small models (1-4B) to test quickly",
     "npu_optimization": "Models with 'NPU' in recommended_devices are optimized for Intel NPU",
     "size_guide": "1-2B: Fastest on NPU, 3-5B: Good balance, 7-8B: Best quality but slower",
-    "npu_best_models": [
-      "TinyLlama-1.1B (1.1B) - Excellent starting point, verified available",
-      "Llama-3.2-1B (1B) - Meta's smallest Llama 3, very fast",
-      "Qwen2.5-1.5B-Instruct (1.5B) - Latest generation, great quality",
-      "SmolLM-135M (0.135B) - Ultra fast, smallest option",
-      "Qwen2.5-3B-Instruct (3B) - Best mid-size for NPU",
-      "Llama-3.2-3B (3B) - Latest Llama with good NPU performance",
-      "StableLM-Zephyr-3B (3B) - Stability AI chat model",
-      "Phi-3-mini (3.8B) - Microsoft's efficient model",
-      "Qwen3-4B (4B) - Upper limit for optimal NPU performance (use CPU/GPU)"
-    ],
-    "verified_available_models": [
-      "TinyLlama-1.1B ✅",
-      "Phi-3-mini-128k ✅",
-      "Mistral-7B-Instruct-v0.2 ✅",
-      "Mistral-7B-Instruct-v0.3 ✅",
-      "Llama-2-7B-Chat ✅",
-      "Llama-3.2-1B-Instruct ✅",
-      "Llama-3.2-3B-Instruct ✅",
-      "Qwen2.5-1.5B-Instruct ✅",
-      "Qwen2.5-3B-Instruct ✅",
-      "Qwen3-1.7B ✅ (but has NPU issues)",
-      "Qwen3-4B ✅",
-      "Qwen3-8B ✅",
-      "SmolLM-135M-Instruct ✅",
-      "StableLM-Zephyr-3B ✅",
-      "Phi-3.5-mini-instruct ✅"
-    ],
-    "not_available": [
-      "SmolLM-1.7B-Instruct ❌ (use SmolLM-135M instead)",
-      "StableLM-2-1.6B ❌ (use StableLM-Zephyr-3B instead)",
-      "Gemma-2B ❌ (not in OpenVINO hub or has NPU issues)",
-      "Gemma-2-2B ❌ (not in OpenVINO hub or has NPU issues)"
-    ],
     "model_id_note": "All model_ids use 'OpenVINO/' prefix - these are pre-optimized INT4 models from HuggingFace Hub. If a model is not available, check https://huggingface.co/OpenVINO for the correct model ID.",
     "performance_tips": {
       "first_run": "First run will be slow due to compilation - subsequent runs use cache and are much faster",
