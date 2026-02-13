@@ -1,15 +1,69 @@
-# OpenVINO Multi-Model Benchmark Script
+# OpenVINO Multi-Model Benchmark Suite
 
 ## Overview
 
-This revised benchmark script allows you to compare the performance of multiple LLM models across different hardware devices (CPU, GPU, NPU) using OpenVINO. It reads model configurations from `benchmark.json` and generates comprehensive comparison reports.
+Benchmark and compare LLM models across hardware devices (CPU, GPU, NPU) using OpenVINO. Includes a **web-based Benchmark Studio UI** and command-line tools.
 
-## 🚀 Quick Start - Single Model Test
+## Installation
 
-**NEW!** Test any model quickly without editing JSON files:
+### Prerequisites
+
+- Python 3.8+
+- [OpenVINO](https://docs.openvino.ai/) and `openvino_genai`
+- Node.js 18+ (only needed for Electron desktop mode)
+
+### Install Python dependencies
 
 ```bash
-python3 quick_benchmark.py OpenVINO/TinyLlama-1.1B-Chat-v1.0-int8-ov
+pip install openvino openvino-genai huggingface_hub flask
+```
+
+### Install Benchmark Studio (optional — for the web UI)
+
+```bash
+cd benchmark-studio
+npm install
+```
+
+## Benchmark Studio (Web UI)
+
+A visual interface for configuring models, running benchmarks, and viewing results with interactive charts.
+
+### Launch options
+
+**Option 1 — Browser mode** (no Node.js needed):
+```bash
+cd benchmark-studio
+./run.sh          # Linux/macOS
+run.bat           # Windows
+```
+Then open http://localhost:8085 in your browser.
+
+**Option 2 — Desktop app** (Electron):
+```bash
+cd benchmark-studio
+npm start
+```
+
+### What the UI provides
+
+| Tab | Features |
+|-----|----------|
+| **Models** | Browse local model folders, search & download HuggingFace OpenVINO models, enable/disable models |
+| **Settings** | Select devices (CPU/GPU/NPU), tune generation params (tokens, temperature, top_p), edit test prompts |
+| **Run** | Start benchmarks with live streaming output, progress tracking, cancel support |
+| **Results** | Interactive Chart.js bar charts (speed & load time), sortable results table, run history |
+
+---
+
+## Command-Line Tools
+
+### Quick Start — Single Model Test
+
+Test any model quickly without editing JSON files:
+
+```bash
+python quick_benchmark.py OpenVINO/TinyLlama-1.1B-Chat-v1.0-int8-ov
 ```
 
 This will:
@@ -25,9 +79,9 @@ This will:
 
 **More examples:**
 ```bash
-python3 quick_benchmark.py OpenVINO/Phi-3.5-vision-instruct-int8-ov
-python3 quick_benchmark.py OpenVINO/Mistral-7B-Instruct-v0.3-int8-ov
-python3 quick_benchmark.py OpenVINO/Qwen2.5-1.5B-Instruct-int8-ov
+python quick_benchmark.py OpenVINO/Phi-3.5-vision-instruct-int8-ov
+python quick_benchmark.py OpenVINO/Mistral-7B-Instruct-v0.3-int8-ov
+python quick_benchmark.py OpenVINO/Qwen2.5-1.5B-Instruct-int8-ov
 ```
 
 ### Custom Config File
@@ -36,10 +90,10 @@ You can also use a custom config file with the main benchmark script:
 
 ```bash
 # Use custom config instead of benchmark.json
-python3 benchmark_devices.py --config my_custom_config.json
+python benchmark_devices.py --config my_custom_config.json
 
 # Or short form
-python3 benchmark_devices.py -c my_custom_config.json
+python benchmark_devices.py -c my_custom_config.json
 ```
 
 **No configuration needed!** Just provide the model ID and go! 🎯
@@ -423,9 +477,23 @@ If larger models (7-8B) fail on NPU:
 
 ## Dependencies
 
-- `openvino` and `openvino_genai`
-- `huggingface_hub`
+### Python (required)
 - Python 3.8+
+- `openvino` — inference runtime
+- `openvino_genai` — LLM pipeline API
+- `huggingface_hub` — model search & download
+- `flask` — Benchmark Studio web server
+
+### Node.js (optional — Electron desktop mode only)
+- Node.js 18+
+- `electron` — installed via `npm install` in `benchmark-studio/`
+
+### Install everything at once
+
+```bash
+pip install openvino openvino-genai huggingface_hub flask
+cd benchmark-studio && npm install   # optional, for Electron mode
+```
 
 ## Example Workflows
 
@@ -460,11 +528,33 @@ If larger models (7-8B) fail on NPU:
 "devices_to_test": ["GPU"]
 ```
 
+## Project Structure
+
+```
+openvino-test-scripts/
+├── benchmark.json              # Benchmark configuration (models, devices, prompts)
+├── benchmark_devices.py        # Main benchmark CLI script
+├── quick_benchmark.py          # Quick single-model benchmark
+├── smart_model_selector.py     # Interactive model/device selector
+├── benchmark_results.json      # Latest benchmark results
+├── benchmark_report.html       # Generated HTML report
+├── benchmark-studio/           # Web UI for benchmarking
+│   ├── run.sh / run.bat        # Standalone launchers (browser mode)
+│   ├── package.json            # Electron config
+│   ├── main.js                 # Electron main process
+│   ├── server.py               # Flask backend
+│   ├── device_manager.py       # OpenVINO device detection
+│   ├── model_manager.py        # Model search/download/registration
+│   ├── benchmark_runner.py     # Benchmark subprocess manager
+│   └── static/                 # Frontend (HTML/CSS/JS)
+└── models/                     # Downloaded models (auto-created)
+```
+
 ## Next Steps
 
 After benchmarking:
 
-1. Review `benchmark_results.json` for detailed metrics
+1. Review results in **Benchmark Studio** (http://localhost:8085) or `benchmark_results.json`
 2. Use optimal model/device combination in your application
 3. Adjust `generation_config` parameters if needed
 4. Add custom test prompts relevant to your use case

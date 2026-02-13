@@ -20,6 +20,10 @@ from huggingface_hub import snapshot_download
 import openvino as ov
 import openvino_genai as ov_genai
 
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 print("Loading Mistral 7B on Intel NPU...")
 
 # Download and load model

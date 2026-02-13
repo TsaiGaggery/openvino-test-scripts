@@ -7,12 +7,12 @@ Models from OpenVINO/* namespace are already converted to OpenVINO IR format
 with INT4/INT8/FP16 quantization - NO conversion needed!
 
 Usage:
-    python3 quick_benchmark.py <model_id>
-    
+    python quick_benchmark.py <model_id>
+
 Examples:
-    python3 quick_benchmark.py OpenVINO/Phi-3.5-vision-instruct-int8-ov
-    python3 quick_benchmark.py OpenVINO/TinyLlama-1.1B-Chat-v1.0-int8-ov
-    python3 quick_benchmark.py OpenVINO/Mistral-7B-Instruct-v0.3-int8-ov
+    python quick_benchmark.py OpenVINO/Phi-3.5-vision-instruct-int8-ov
+    python quick_benchmark.py OpenVINO/TinyLlama-1.1B-Chat-v1.0-int8-ov
+    python quick_benchmark.py OpenVINO/Mistral-7B-Instruct-v0.3-int8-ov
 
 Features:
     - Tests on CPU, GPU, and NPU automatically
@@ -200,11 +200,11 @@ def main():
     if len(sys.argv) < 2:
         print("❌ Error: Model ID required")
         print("\nUsage:")
-        print(f"  python3 {sys.argv[0]} <model_id>")
+        print(f"  python {sys.argv[0]} <model_id>")
         print("\nExamples:")
-        print(f"  python3 {sys.argv[0]} OpenVINO/Phi-3.5-vision-instruct-int8-ov")
-        print(f"  python3 {sys.argv[0]} OpenVINO/TinyLlama-1.1B-Chat-v1.0-int8-ov")
-        print(f"  python3 {sys.argv[0]} OpenVINO/Mistral-7B-Instruct-v0.3-int8-ov")
+        print(f"  python {sys.argv[0]} OpenVINO/Phi-3.5-vision-instruct-int8-ov")
+        print(f"  python {sys.argv[0]} OpenVINO/TinyLlama-1.1B-Chat-v1.0-int8-ov")
+        print(f"  python {sys.argv[0]} OpenVINO/Mistral-7B-Instruct-v0.3-int8-ov")
         return 1
     
     model_id = sys.argv[1]
@@ -260,4 +260,7 @@ def main():
 
 
 if __name__ == "__main__":
+    if sys.platform == 'win32':
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
     sys.exit(main())

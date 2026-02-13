@@ -32,8 +32,8 @@ def timeout_handler(signum, frame):
 
 def safe_load_pipeline(model_dir, device, timeout_seconds=300):
     """Safely load pipeline with timeout protection (Linux only)"""
-    if sys.platform != 'linux':
-        # On non-Linux, just try direct load
+    if not hasattr(signal, 'SIGALRM'):
+        # On non-Linux (Windows, etc.), just try direct load without timeout
         return ov_genai.LLMPipeline(model_dir, device)
     
     # Set up timeout signal (Linux only)
@@ -80,7 +80,10 @@ def download_model(model_id, model_name):
             return None
     
     # Check for local path patterns that don't exist yet
-    if model_id.startswith('/') or model_id.startswith('~') or model_id.startswith('./'):
+    if (model_id.startswith('/') or model_id.startswith('~') or model_id.startswith('./')
+            or model_id.startswith('.\\') or (len(model_id) >= 2 and model_id[1] == ':')
+            or model_id.startswith('\\\\')):
+        # Covers Unix paths (/, ~, ./) and Windows paths (C:\, .\\, \\server\share)
         print(f"❌ Error: Local model path not found: {model_id}")
         return None
     
@@ -1317,4 +1320,7 @@ def main():
         print("   4. For large models (7-8B), GPU will generally be faster")
 
 if __name__ == "__main__":
+    if sys.platform == 'win32':
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
     main()
