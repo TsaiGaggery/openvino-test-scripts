@@ -104,6 +104,7 @@ class BenchmarkRunner:
         env = os.environ.copy()
         # Ensure UTF-8 output for emoji-heavy benchmark scripts
         env['PYTHONIOENCODING'] = 'utf-8'
+        env['PYTHONUNBUFFERED'] = '1'
         return env
 
     def _save_to_history(self):

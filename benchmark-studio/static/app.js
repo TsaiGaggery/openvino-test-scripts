@@ -133,6 +133,7 @@ function setupModelListeners() {
             config.models.splice(index, 1);
             await saveConfig();
             renderModelList();
+            if (hfSearchResults.length > 0) renderHFResults(hfSearchResults);
             showToast('Model removed', 'info');
         }
     });
@@ -237,8 +238,7 @@ function renderHFResults(results) {
                     <span>${formatDownloads(m.downloads)}</span>
                     ${existing
                         ? '<span class="text-muted">Added</span>'
-                        : `<button class="btn btn-sm btn-primary" onclick="addHFModel('${escapeHtml(m.id)}', '${escapeHtml(m.name)}')">Add</button>
-                           <button class="btn btn-sm btn-secondary" onclick="downloadHFModel('${escapeHtml(m.id)}', '${escapeHtml(m.name)}', this)">Download</button>`
+                        : `<button class="btn btn-sm btn-primary" onclick="addHFModel('${escapeHtml(m.id)}', '${escapeHtml(m.name)}')">Add</button>`
                     }
                 </div>
             </div>
@@ -281,57 +281,6 @@ async function addHFModel(modelId, modelName) {
     renderModelList();
     renderHFResults(hfSearchResults); // Refresh to show "Added"
     showToast(`Added ${modelName}`, 'success');
-}
-
-async function downloadHFModel(modelId, modelName, btn) {
-    btn.disabled = true;
-    btn.textContent = 'Downloading...';
-
-    // First add to config
-    const existing = (config?.models || []).some(cm => cm.model_id === modelId);
-    if (!existing) {
-        await addHFModel(modelId, modelName);
-    }
-
-    try {
-        const response = await fetch('/api/model/download/stream', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model_id: modelId }),
-        });
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop();
-
-            for (const line of lines) {
-                if (!line.startsWith('data: ')) continue;
-                try {
-                    const event = JSON.parse(line.slice(6));
-                    if (event.status === 'downloading') {
-                        const pct = Math.round((event.progress || 0) * 100);
-                        btn.textContent = `${pct}%`;
-                    } else if (event.status === 'success') {
-                        btn.textContent = 'Done';
-                        showToast(event.message, 'success');
-                    } else if (event.status === 'error') {
-                        btn.textContent = 'Failed';
-                        showToast(event.message, 'error');
-                    }
-                } catch (e) { /* skip */ }
-            }
-        }
-    } catch (e) {
-        btn.textContent = 'Failed';
-        showToast('Download failed: ' + e.message, 'error');
-    }
 }
 
 function extractSize(name) {
@@ -452,6 +401,10 @@ function setupSettingsListeners() {
 function collectSettings() {
     if (!config.benchmark_config) config.benchmark_config = {};
     const bc = config.benchmark_config;
+
+    // Only collect from DOM if the Settings tab has been rendered
+    const hasDeviceCheckboxes = document.querySelectorAll('#deviceCheckboxes .device-checkbox').length > 0;
+    if (!hasDeviceCheckboxes) return;
 
     // Devices
     const selectedDevices = [];

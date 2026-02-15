@@ -152,6 +152,21 @@ DEFAULT_CONFIG = {
 }
 
 
+def _is_local_path(model_id):
+    return (model_id.startswith('/') or model_id.startswith('~')
+            or model_id.startswith('./') or model_id.startswith('.\\')
+            or (len(model_id) >= 2 and model_id[1] == ':')
+            or model_id.startswith('\\\\'))
+
+
+def _local_model_exists(model_id):
+    try:
+        p = Path(model_id).expanduser()
+        return p.exists() and p.is_dir() and list(p.glob('*.xml')) and list(p.glob('*.bin'))
+    except (OSError, PermissionError):
+        return False
+
+
 @app.route('/api/config')
 def get_config():
     config_path = PROJECT_DIR / 'benchmark.json'
@@ -162,6 +177,11 @@ def get_config():
         return jsonify(DEFAULT_CONFIG)
     with open(config_path, 'r') as f:
         config = json.load(f)
+    # Filter out local-path models that don't exist on disk
+    config['models'] = [
+        m for m in config.get('models', [])
+        if not _is_local_path(m.get('model_id', '')) or _local_model_exists(m.get('model_id', ''))
+    ]
     return jsonify(config)
 
 
