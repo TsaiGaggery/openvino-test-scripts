@@ -1,5 +1,5 @@
-openvino>=2024.2.0
-openvino-genai>=2024.2.0
+openvino>=2025.4.0
+openvino-genai>=2025.4.0
 huggingface_hub>=0.20.0
 flask>=3.0.0
 tqdm>=4.60.0

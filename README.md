@@ -9,13 +9,19 @@ Benchmark and compare LLM models across hardware devices (CPU, GPU, NPU) using O
 ### Prerequisites
 
 - Python 3.8+
-- [OpenVINO](https://docs.openvino.ai/) and `openvino_genai`
-- Node.js 18+ (only needed for Electron desktop mode)
+- [OpenVINO](https://docs.openvino.ai/) >= 2025.4 and `openvino_genai` >= 2025.4
+- Node.js 20+ (only needed for Electron desktop mode)
 
 ### Install Python dependencies
 
 ```bash
-pip install openvino openvino-genai huggingface_hub flask
+pip install -r requirements.txt
+```
+
+Or manually:
+
+```bash
+pip install "openvino>=2025.4" "openvino-genai>=2025.4" huggingface_hub flask
 ```
 
 ### Install Benchmark Studio (optional — for the web UI)
@@ -58,32 +64,6 @@ npm start
 
 ## Command-Line Tools
 
-### Quick Start — Single Model Test
-
-Test any model quickly without editing JSON files:
-
-```bash
-python quick_benchmark.py OpenVINO/TinyLlama-1.1B-Chat-v1.0-int8-ov
-```
-
-This will:
-- ✅ Test the model on CPU, GPU, and NPU
-- ✅ Run **5 diverse test prompts**:
-  1. "What is the capital of France?"
-  2. "Explain quantum computing in simple terms."
-  3. "Write a short poem about artificial intelligence."
-  4. "What are the main differences between Python and JavaScript?"
-  5. "Describe the process of photosynthesis."
-- ✅ Generate `benchmark_report.html` with results
-- ✅ **Does NOT modify your `benchmark.json`** - uses temporary config file
-
-**More examples:**
-```bash
-python quick_benchmark.py OpenVINO/Phi-3.5-vision-instruct-int8-ov
-python quick_benchmark.py OpenVINO/Mistral-7B-Instruct-v0.3-int8-ov
-python quick_benchmark.py OpenVINO/Qwen2.5-1.5B-Instruct-int8-ov
-```
-
 ### Custom Config File
 
 You can also use a custom config file with the main benchmark script:
@@ -95,8 +75,6 @@ python benchmark_devices.py --config my_custom_config.json
 # Or short form
 python benchmark_devices.py -c my_custom_config.json
 ```
-
-**No configuration needed!** Just provide the model ID and go! 🎯
 
 ---
 
@@ -110,7 +88,7 @@ All models from the `OpenVINO/` namespace on HuggingFace are **already pre-conve
 - ✅ Pre-converted OpenVINO IR models (`.xml` + `.bin` files)
 - ✅ Already quantized (INT4/INT8/FP16 - ready for NPU/GPU/CPU)
 - ✅ Optimized with NNCF weight compression
-- ✅ Compatible with OpenVINO 2024.2.0+
+- ✅ Requires OpenVINO 2025.4+
 
 **You DO NOT need to:**
 - ❌ Run `optimum-cli export openvino`
@@ -479,19 +457,19 @@ If larger models (7-8B) fail on NPU:
 
 ### Python (required)
 - Python 3.8+
-- `openvino` — inference runtime
-- `openvino_genai` — LLM pipeline API
+- `openvino` >= 2025.4 — inference runtime
+- `openvino_genai` >= 2025.4 — LLM pipeline API
 - `huggingface_hub` — model search & download
 - `flask` — Benchmark Studio web server
 
 ### Node.js (optional — Electron desktop mode only)
-- Node.js 18+
+- Node.js 20+
 - `electron` — installed via `npm install` in `benchmark-studio/`
 
 ### Install everything at once
 
 ```bash
-pip install openvino openvino-genai huggingface_hub flask
+pip install -r requirements.txt
 cd benchmark-studio && npm install   # optional, for Electron mode
 ```
 
@@ -534,10 +512,10 @@ cd benchmark-studio && npm install   # optional, for Electron mode
 openvino-test-scripts/
 ├── benchmark.json              # Benchmark configuration (models, devices, prompts)
 ├── benchmark_devices.py        # Main benchmark CLI script
-├── quick_benchmark.py          # Quick single-model benchmark
 ├── smart_model_selector.py     # Interactive model/device selector
-├── benchmark_results.json      # Latest benchmark results
-├── benchmark_report.html       # Generated HTML report
+├── requirements.txt            # Python dependencies
+├── benchmark_results.json      # Latest benchmark results (generated)
+├── benchmark_report.html       # Generated HTML report (generated)
 ├── benchmark-studio/           # Web UI for benchmarking
 │   ├── run.sh / run.bat        # Standalone launchers (browser mode)
 │   ├── package.json            # Electron config
@@ -547,6 +525,12 @@ openvino-test-scripts/
 │   ├── model_manager.py        # Model search/download/registration
 │   ├── benchmark_runner.py     # Benchmark subprocess manager
 │   └── static/                 # Frontend (HTML/CSS/JS)
+├── tests/                      # Auxiliary test and utility scripts
+│   ├── quick_benchmark.py      # Quick single-model benchmark
+│   ├── test_local_model.py     # Test local model directories
+│   ├── verify_models.py        # Verify models exist on HuggingFace
+│   ├── mistral7b_device_select.py  # Mistral 7B device selection demo
+│   └── mistral7b_interactive.py    # Mistral 7B interactive chatbot
 └── models/                     # Downloaded models (auto-created)
 ```
 
