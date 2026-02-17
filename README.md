@@ -448,6 +448,33 @@ If larger models (7-8B) fail on NPU:
 2. Use GPU instead for large models
 3. Enable fewer models at once
 
+### No Power Consumption Data (RAPL)
+
+The benchmark measures CPU package and DRAM power via Intel RAPL. If power columns are missing from results, RAPL counters are not readable by your user.
+
+**Check permissions:**
+```bash
+ls -l /sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj
+```
+
+If the file shows `-r--------` (root-only), fix with one of these options:
+
+**Option 1 — One-time fix (resets on reboot):**
+```bash
+sudo chmod a+r /sys/class/powercap/intel-rapl/*/energy_uj /sys/class/powercap/intel-rapl/*/*/energy_uj
+```
+
+**Option 2 — Persistent udev rule (survives reboots):**
+```bash
+echo 'SUBSYSTEM=="powercap", ACTION=="add", RUN+="/bin/chmod a+r %S%p/energy_uj"' | sudo tee /etc/udev/rules.d/99-rapl-read.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+**Option 3 — Run as root:**
+```bash
+sudo python3 benchmark_devices.py
+```
+
 ## Performance Tips
 
 1. **Start Small**: Test 1-2 small models first to validate setup

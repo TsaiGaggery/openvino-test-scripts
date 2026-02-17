@@ -115,6 +115,28 @@
                         </div>
                     </div>
 
+                    <!-- HuggingFace Token -->
+                    <div class="section-card">
+                        <h3>HuggingFace Token</h3>
+                        <p class="text-muted" style="margin-bottom: 12px; font-size: 12px;">
+                            Required for gated models (Llama, Gemma, etc). Saved to <code>~/.cache/huggingface/token</code> and persists across restarts.
+                        </p>
+                        <div class="hf-token-row">
+                            <div class="hf-token-input-group">
+                                <input type="password" id="hfTokenInput" class="input" placeholder="hf_...">
+                                <button id="hfTokenToggleVisibility" class="btn btn-sm btn-ghost" title="Show/Hide">
+                                    <svg id="hfTokenEyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <button id="hfTokenSaveBtn" class="btn btn-primary btn-sm">Save Token</button>
+                            <button id="hfTokenClearBtn" class="btn btn-sm btn-ghost">Clear</button>
+                        </div>
+                        <div id="hfTokenStatus" class="text-muted" style="margin-top: 8px; font-size: 12px;"></div>
+                    </div>
+
                     <!-- Generation Config -->
                     <div class="section-card">
                         <h3>Generation Config</h3>
@@ -258,6 +280,10 @@
                             <div class="section-card chart-card">
                                 <h3>Model Load Time (seconds)</h3>
                                 <canvas id="loadTimeChart"></canvas>
+                            </div>
+                            <div class="section-card chart-card" id="powerChartCard" style="display:none;">
+                                <h3>Package Power (Watts)</h3>
+                                <canvas id="powerChart"></canvas>
                             </div>
                         </div>
 

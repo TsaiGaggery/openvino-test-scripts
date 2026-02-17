@@ -26,6 +26,95 @@ class TimeoutError(Exception):
     """Custom timeout exception"""
     pass
 
+
+class RaplMonitor:
+    """Read Intel RAPL energy counters from /sys/class/powercap/intel-rapl/.
+
+    Auto-discovers all available domains (package, core, uncore, dram, psys).
+    Works without sudo on most modern kernels. Gracefully returns nothing
+    on Windows or when RAPL sysfs is not readable.
+    """
+    RAPL_BASE = Path('/sys/class/powercap/intel-rapl')
+
+    def __init__(self):
+        self.domains = {}  # {name: {energy_path, max_energy_uj}}
+        self._start_energy = {}
+        self._start_time = 0
+        self._discover_domains()
+
+    def _discover_domains(self):
+        """Scan sysfs for all readable RAPL domains and subdomains."""
+        if sys.platform != 'linux' or not self.RAPL_BASE.exists():
+            return
+        try:
+            for zone in sorted(self.RAPL_BASE.glob('intel-rapl:*')):
+                self._register_domain(zone)
+                for subzone in sorted(zone.glob('intel-rapl:*')):
+                    self._register_domain(subzone)
+        except (PermissionError, OSError):
+            pass
+
+    def _register_domain(self, zone_path):
+        energy_file = zone_path / 'energy_uj'
+        name_file = zone_path / 'name'
+        max_file = zone_path / 'max_energy_range_uj'
+        try:
+            name = name_file.read_text().strip()
+            int(energy_file.read_text().strip())  # test readability
+            max_uj = int(max_file.read_text().strip()) if max_file.exists() else 0
+            self.domains[name] = {
+                'energy_path': str(energy_file),
+                'max_energy_uj': max_uj,
+            }
+        except (PermissionError, OSError, ValueError):
+            pass
+
+    @property
+    def available(self) -> bool:
+        return len(self.domains) > 0
+
+    @property
+    def domain_names(self) -> list:
+        return list(self.domains.keys())
+
+    def start(self):
+        """Record energy counters and timestamp."""
+        self._start_time = time.time()
+        self._start_energy = {}
+        for name, info in self.domains.items():
+            try:
+                with open(info['energy_path']) as f:
+                    self._start_energy[name] = int(f.read().strip())
+            except (OSError, ValueError):
+                pass
+
+    def stop(self) -> dict:
+        """Read counters again, compute watts and joules per domain."""
+        elapsed = time.time() - self._start_time
+        if elapsed <= 0:
+            return {}
+
+        result = {}
+        for name, info in self.domains.items():
+            if name not in self._start_energy:
+                continue
+            try:
+                with open(info['energy_path']) as f:
+                    end_uj = int(f.read().strip())
+                start_uj = self._start_energy[name]
+                delta_uj = end_uj - start_uj
+                # Handle counter overflow
+                if delta_uj < 0 and info['max_energy_uj'] > 0:
+                    delta_uj += info['max_energy_uj']
+                energy_j = delta_uj / 1_000_000
+                result[name] = {
+                    'avg_watts': round(energy_j / elapsed, 2),
+                    'energy_joules': round(energy_j, 2),
+                }
+            except (OSError, ValueError):
+                pass
+        return result
+
 def timeout_handler(signum, frame):
     """Signal handler for timeout"""
     raise TimeoutError("Operation timed out")
@@ -217,24 +306,37 @@ def benchmark_model_device(model_dir, device, test_prompts, gen_config, cache_di
         
         # Run benchmark
         print(f"  Running {len(test_prompts)} test prompts on {device}...")
-        
+
+        rapl = RaplMonitor()
+        if rapl.available:
+            rapl.start()
+
         generation_times = []
         token_counts = []
-        
+
         for i, prompt in enumerate(test_prompts, 1):
             print(f"    [{i}/{len(test_prompts)}] {prompt[:45]}...")
-            
+
             start = time.time()
             response = pipe.generate(prompt, gen_config)
             elapsed = time.time() - start
-            
+
             tokens = len(response.split())
             generation_times.append(elapsed)
             token_counts.append(tokens)
-            
+
             speed = tokens / elapsed if elapsed > 0 else 0
             print(f"         {elapsed:.2f}s | {tokens} tokens | {speed:.1f} tok/s")
-        
+
+        # Collect power data
+        if rapl.available:
+            power_data = rapl.stop()
+            if power_data:
+                result['power'] = power_data
+                pkg = power_data.get('package-0') or power_data.get('psys')
+                if pkg:
+                    print(f"  ⚡ Avg power: {pkg['avg_watts']:.1f} W (package)")
+
         # Calculate statistics
         result['generation_times'] = generation_times
         result['token_counts'] = token_counts
@@ -306,17 +408,34 @@ def print_model_summary(model_name, device_results, model_size):
                 print(f"   • {dev}: {res['error']}")
         return
     
-    print(f"\n{'Device':<10} {'Load (s)':<12} {'Cache':<10} {'Avg Time (s)':<15} {'Avg Speed':<15} {'Total Time (s)':<15}")
-    print("-" * 90)
-    
-    sorted_devices = sorted(successful_results.items(), 
-                          key=lambda x: x[1]['avg_speed'], 
+    # Check if any result has power data
+    has_power = any(r.get('power') for r in successful_results.values())
+    power_domains = []
+    if has_power:
+        for r in successful_results.values():
+            for d in r.get('power', {}):
+                if d not in power_domains:
+                    power_domains.append(d)
+
+    header = f"{'Device':<10} {'Load (s)':<12} {'Cache':<10} {'Avg Time (s)':<15} {'Avg Speed':<15}"
+    for d in power_domains:
+        header += f" {d+' (W)':<14}"
+    print(f"\n{header}")
+    print("-" * (90 + 15 * len(power_domains)))
+
+    sorted_devices = sorted(successful_results.items(),
+                          key=lambda x: x[1]['avg_speed'],
                           reverse=True)
-    
+
     for device, data in sorted_devices:
         cache_status = data.get('cache_status', 'unknown')
-        print(f"{device:<10} {data['load_time']:>10.1f}  {cache_status:<10} {data['avg_time']:>13.2f}  "
-              f"{data['avg_speed']:>13.1f} tok/s  {data['total_time']:>13.1f}")
+        line = (f"{device:<10} {data['load_time']:>10.1f}  {cache_status:<10} {data['avg_time']:>13.2f}  "
+                f"{data['avg_speed']:>13.1f} tok/s")
+        power = data.get('power', {})
+        for d in power_domains:
+            w = power.get(d, {}).get('avg_watts')
+            line += f"  {w:>11.1f} W" if w is not None else f"  {'-':>12}"
+        print(line)
     
     # Show skipped tests
     if skipped_results:
@@ -369,23 +488,50 @@ def print_cross_model_comparison(all_results, models_info):
                     'speed': result['avg_speed'],
                     'load_time': result['load_time'],
                     'avg_time': result['avg_time'],
-                    'cache': result.get('cache_status', 'unknown')
+                    'cache': result.get('cache_status', 'unknown'),
+                    'power': result.get('power', {})
                 })
-    
+
     if not comparison_data:
         print("❌ No successful benchmarks to compare")
         return
-    
+
+    # Detect available power domains
+    power_domains = []
+    for item in comparison_data:
+        for d in item.get('power', {}):
+            if d not in power_domains:
+                power_domains.append(d)
+
     # Sort by speed
     comparison_data.sort(key=lambda x: x['speed'], reverse=True)
-    
+
     # Print table
-    print(f"\n{'Model':<30} {'Size':<8} {'Device':<10} {'Speed':<18} {'Load (s)':<12} {'Cache':<10}")
-    print("-" * 100)
-    
+    header = f"{'Model':<30} {'Size':<8} {'Device':<10} {'Speed':<18} {'Load (s)':<12}"
+    for d in power_domains:
+        header += f" {d+' (W)':<14}"
+    if power_domains:
+        header += f" {'tok/J':<10}"
+    print(f"\n{header}")
+    print("-" * (100 + 15 * len(power_domains) + (10 if power_domains else 0)))
+
     for item in comparison_data:
-        print(f"{item['model']:<30} {item['size']:<8} {item['device']:<10} "
-              f"{item['speed']:>15.1f} tok/s  {item['load_time']:>10.1f}  {item['cache']:<10}")
+        line = (f"{item['model']:<30} {item['size']:<8} {item['device']:<10} "
+                f"{item['speed']:>15.1f} tok/s  {item['load_time']:>10.1f}")
+        power = item.get('power', {})
+        pkg_energy = None
+        for d in power_domains:
+            w = power.get(d, {}).get('avg_watts')
+            line += f"  {w:>11.1f} W" if w is not None else f"  {'-':>12}"
+            if d in ('package-0', 'psys') and power.get(d):
+                pkg_energy = power[d].get('energy_joules')
+        if power_domains:
+            if pkg_energy and pkg_energy > 0:
+                tok_per_j = item.get('speed', 0) / (power.get('package-0', power.get('psys', {})).get('avg_watts', 1))
+                line += f"  {tok_per_j:>8.2f}"
+            else:
+                line += f"  {'-':>9}"
+        print(line)
     
     # Top performers
     print("\n" + "=" * 100)
@@ -494,7 +640,8 @@ def generate_html_report(all_results, enabled_models, devices_to_test, config, o
         'models': [],
         'devices': devices_to_test,
         'speeds': {device: [] for device in devices_to_test},
-        'load_times': {device: [] for device in devices_to_test}
+        'load_times': {device: [] for device in devices_to_test},
+        'power': {device: [] for device in devices_to_test}
     }
     
     comparison_data = []
@@ -508,6 +655,10 @@ def generate_html_report(all_results, enabled_models, devices_to_test, config, o
             if result.get('success'):
                 chart_data['speeds'][device].append(result['avg_speed'])
                 chart_data['load_times'][device].append(result['load_time'])
+                # Power: use package-0 or psys watts, or 0 if unavailable
+                power = result.get('power', {})
+                pkg_power = power.get('package-0', power.get('psys', {}))
+                chart_data['power'][device].append(pkg_power.get('avg_watts', 0) if pkg_power else 0)
                 comparison_data.append({
                     'model': model_name,
                     'size': model_size,
@@ -516,27 +667,44 @@ def generate_html_report(all_results, enabled_models, devices_to_test, config, o
                     'load_time': result['load_time'],
                     'avg_time': result['avg_time'],
                     'total_tokens': result['total_tokens'],
-                    'cache': result.get('cache_status', 'unknown')
+                    'cache': result.get('cache_status', 'unknown'),
+                    'power': result.get('power', {})
                 })
             else:
                 chart_data['speeds'][device].append(0)
                 chart_data['load_times'][device].append(0)
+                chart_data['power'][device].append(0)
     
     # Find best performers
     best_overall = max(comparison_data, key=lambda x: x['speed']) if comparison_data else None
     
+    # Detect power domains across all results
+    power_domains = []
+    has_power = False
+    for item in comparison_data:
+        for d in item.get('power', {}):
+            has_power = True
+            if d not in power_domains:
+                power_domains.append(d)
+
     # Device statistics
     device_stats = {}
     for device in devices_to_test:
         device_results_list = [item for item in comparison_data if item['device'] == device]
         if device_results_list:
             speeds = [item['speed'] for item in device_results_list]
-            device_stats[device] = {
+            stats = {
                 'avg_speed': statistics.mean(speeds),
                 'min_speed': min(speeds),
                 'max_speed': max(speeds),
                 'count': len(speeds)
             }
+            # Compute average power per domain for this device
+            for domain in power_domains:
+                watts = [item['power'].get(domain, {}).get('avg_watts') for item in device_results_list if item['power'].get(domain)]
+                if watts:
+                    stats[f'avg_{domain}_watts'] = statistics.mean(watts)
+            device_stats[device] = stats
     
     # Generate HTML
     html = f"""<!DOCTYPE html>
@@ -808,6 +976,11 @@ def generate_html_report(all_results, enabled_models, devices_to_test, config, o
 """
         for device, stats in device_stats.items():
             device_class = f"device-{device.lower()}"
+            power_lines = ''
+            for domain in power_domains:
+                avg_key = f'avg_{domain}_watts'
+                if avg_key in stats:
+                    power_lines += f'<div>Avg {domain}: {stats[avg_key]:.1f} W</div>'
             html += f"""
                     <div class="metric-card">
                         <h4 class="{device_class}">{device}</h4>
@@ -816,6 +989,7 @@ def generate_html_report(all_results, enabled_models, devices_to_test, config, o
                         <div style="margin-top: 10px; font-size: 0.9em;">
                             <div>Range: {stats['min_speed']:.1f} - {stats['max_speed']:.1f} tok/s</div>
                             <div>Models tested: {stats['count']}</div>
+                            {power_lines}
                         </div>
                     </div>
 """
@@ -829,7 +1003,14 @@ def generate_html_report(all_results, enabled_models, devices_to_test, config, o
         comparison_data_sorted = sorted(comparison_data, key=lambda x: x['speed'], reverse=True)
         fastest_speed = comparison_data_sorted[0]['speed']
         
-        html += """
+        # Build dynamic power column headers
+        power_th = ''
+        for domain in power_domains:
+            power_th += f'<th>{domain} (W)</th>'
+        if has_power:
+            power_th += '<th>tok/J</th>'
+
+        html += f"""
             <section class="section">
                 <h2>📈 Detailed Benchmark Results</h2>
                 <table>
@@ -843,6 +1024,7 @@ def generate_html_report(all_results, enabled_models, devices_to_test, config, o
                             <th>Avg Time (s)</th>
                             <th>Total Tokens</th>
                             <th>Cache</th>
+                            {power_th}
                         </tr>
                     </thead>
                     <tbody>
@@ -851,7 +1033,22 @@ def generate_html_report(all_results, enabled_models, devices_to_test, config, o
             fastest_badge = ' <span class="badge fastest">FASTEST</span>' if item['speed'] == fastest_speed else ''
             cache_badge_class = 'success' if item['cache'] == 'hit' else 'warning'
             device_class = f"device-{item['device'].lower()}"
-            
+            power = item.get('power', {})
+
+            power_td = ''
+            pkg_watts = None
+            for domain in power_domains:
+                w = power.get(domain, {}).get('avg_watts')
+                power_td += f'<td>{w:.1f}</td>' if w is not None else '<td>-</td>'
+                if domain in ('package-0', 'psys') and w is not None:
+                    pkg_watts = w
+            if has_power:
+                if pkg_watts and pkg_watts > 0:
+                    tok_per_j = item['speed'] / pkg_watts
+                    power_td += f'<td>{tok_per_j:.2f}</td>'
+                else:
+                    power_td += '<td>-</td>'
+
             html += f"""
                         <tr>
                             <td><strong>{item['model']}</strong>{fastest_badge}</td>
@@ -862,6 +1059,7 @@ def generate_html_report(all_results, enabled_models, devices_to_test, config, o
                             <td>{item['avg_time']:.2f}</td>
                             <td>{item['total_tokens']}</td>
                             <td><span class="badge {cache_badge_class}">{item['cache']}</span></td>
+                            {power_td}
                         </tr>
 """
         html += """
@@ -874,14 +1072,22 @@ def generate_html_report(all_results, enabled_models, devices_to_test, config, o
     html += """
             <section class="section">
                 <h2>📊 Performance Charts</h2>
-                
+
                 <div class="chart-container">
                     <canvas id="speedChart"></canvas>
                 </div>
-                
+
                 <div class="chart-container">
                     <canvas id="loadTimeChart"></canvas>
                 </div>
+"""
+    if has_power:
+        html += """
+                <div class="chart-container">
+                    <canvas id="powerChart"></canvas>
+                </div>
+"""
+    html += """
             </section>
 """
     
@@ -1065,6 +1271,61 @@ def generate_html_report(all_results, enabled_models, devices_to_test, config, o
                 }
             }
         });
+"""
+
+    # Power Chart (only if RAPL data exists)
+    if has_power:
+        html += f"""
+        // Power Chart
+        const powerCtx = document.getElementById('powerChart').getContext('2d');
+        const powerChart = new Chart(powerCtx, {{
+            type: 'bar',
+            data: {{
+                labels: {json.dumps(chart_data['models'])},
+                datasets: [
+"""
+        for device in devices_to_test:
+            color = colors.get(device, '#666')
+            html += f"""
+                    {{
+                        label: '{device}',
+                        data: {json.dumps(chart_data['power'][device])},
+                        backgroundColor: '{color}',
+                        borderColor: '{color}',
+                        borderWidth: 2
+                    }},
+"""
+        html += """
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Average Package Power (Watts)',
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Power (Watts)'
+                        }
+                    }
+                }
+            }
+        });
+"""
+
+    html += """
     </script>
 </body>
 </html>
@@ -1273,19 +1534,28 @@ def main():
     print("\n[6/6] Saving results...")
     results_file = "benchmark_results.json"
     
+    # Detect all RAPL domains across results
+    rapl_domains = []
+    for device_results in all_results.values():
+        for result in device_results.values():
+            for d in result.get('power', {}):
+                if d not in rapl_domains:
+                    rapl_domains.append(d)
+
     output_data = {
         'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
         'config': config['benchmark_config'],
         'devices_tested': devices_to_test,
         'models_tested': [m['name'] for m in enabled_models],
+        'rapl_domains': rapl_domains,
         'results': {}
     }
-    
+
     for model_name, device_results in all_results.items():
         output_data['results'][model_name] = {}
         for device, result in device_results.items():
             if result['success']:
-                output_data['results'][model_name][device] = {
+                entry = {
                     'load_time': result['load_time'],
                     'avg_time': result['avg_time'],
                     'avg_speed': result['avg_speed'],
@@ -1294,6 +1564,9 @@ def main():
                     'total_tokens': result['total_tokens'],
                     'cache_status': result.get('cache_status', 'unknown')
                 }
+                if result.get('power'):
+                    entry['power'] = result['power']
+                output_data['results'][model_name][device] = entry
     
     with open(results_file, 'w') as f:
         json.dump(output_data, f, indent=2)

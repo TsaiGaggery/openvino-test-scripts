@@ -45,6 +45,23 @@ model_manager = ModelManager(
 )
 benchmark_runner = BenchmarkRunner(project_dir=str(PROJECT_DIR))
 
+# ─── HF Token ────────────────────────────────────────────────────────────────
+
+_hf_token = None
+
+def _get_hf_token():
+    """Return the active HF token: UI override > env var > huggingface_hub stored token."""
+    if _hf_token:
+        return _hf_token
+    env = os.environ.get('HF_TOKEN')
+    if env:
+        return env
+    try:
+        from huggingface_hub import get_token
+        return get_token()
+    except Exception:
+        return None
+
 
 # ─── Static Files ───────────────────────────────────────────────────────────
 
@@ -91,7 +108,7 @@ def search_models():
     limit = min(int(request.args.get('limit', 20)), 50)
     if not query:
         return jsonify({"results": []})
-    results = model_manager.search_huggingface(query, limit=limit)
+    results = model_manager.search_huggingface(query, limit=limit, token=_get_hf_token())
     return jsonify({"results": results})
 
 
@@ -103,7 +120,7 @@ def download_model_stream():
         return jsonify({"status": "error", "message": "model_id required"}), 400
 
     def generate():
-        for progress in model_manager.download_model_streaming(hf_model_id):
+        for progress in model_manager.download_model_streaming(hf_model_id, token=_get_hf_token()):
             yield f"data: {json.dumps(progress)}\n\n"
 
     return Response(generate(), mimetype='text/event-stream')
@@ -131,25 +148,77 @@ def delete_model():
     return jsonify(result)
 
 
+# ─── HF Token Endpoints ────────────────────────────────────────────────────
+
+@app.route('/api/hf-token/status')
+def hf_token_status():
+    """Return whether a token is configured (never expose the actual value)."""
+    token = _get_hf_token()
+    if not token:
+        return jsonify({"configured": False, "source": None})
+    if _hf_token:
+        source = "ui"
+    elif os.environ.get('HF_TOKEN'):
+        source = "env"
+    else:
+        source = "saved"
+    masked = token[:4] + '*' * (len(token) - 4) if len(token) > 4 else '****'
+    return jsonify({"configured": True, "source": source, "masked": masked})
+
+
+@app.route('/api/hf-token', methods=['POST'])
+def set_hf_token():
+    """Save the HF token persistently via huggingface_hub (stored in ~/.cache/huggingface/token)."""
+    global _hf_token
+    data = request.get_json()
+    token = (data.get('token') or '').strip()
+    if not token:
+        return jsonify({"status": "error", "message": "Token cannot be empty"}), 400
+    _hf_token = token
+    try:
+        from huggingface_hub import login
+        login(token=token, add_to_git_credential=False)
+        return jsonify({"status": "success", "message": "Token saved (persists across restarts)"})
+    except Exception as e:
+        logger.warning(f"Could not persist token via huggingface_hub: {e}")
+        return jsonify({"status": "success", "message": "Token saved (session only — install huggingface_hub for persistence)"})
+
+
+@app.route('/api/hf-token', methods=['DELETE'])
+def clear_hf_token():
+    """Clear the HF token (in-memory override and persisted token)."""
+    global _hf_token
+    _hf_token = None
+    try:
+        from huggingface_hub import logout
+        logout()
+    except Exception:
+        pass
+    return jsonify({"status": "success", "message": "Token cleared"})
+
+
 # ─── Benchmark Config ───────────────────────────────────────────────────────
 
-DEFAULT_CONFIG = {
-    "models": [],
-    "benchmark_config": {
-        "devices_to_test": ["CPU"],
-        "generation_config": {
-            "max_new_tokens": 100,
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "do_sample": True
-        },
-        "test_prompts": [
-            "What is artificial intelligence and how does it work?"
-        ],
-        "run_warmup": True,
-        "cache_dir": "./ov_cache"
+def _build_default_config():
+    detected = device_manager.detect_devices()
+    device_names = [d['name'] for d in detected] or ["CPU"]
+    return {
+        "models": [],
+        "benchmark_config": {
+            "devices_to_test": device_names,
+            "generation_config": {
+                "max_new_tokens": 100,
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "do_sample": True
+            },
+            "test_prompts": [
+                "What is artificial intelligence and how does it work?"
+            ],
+            "run_warmup": True,
+            "cache_dir": "./ov_cache"
+        }
     }
-}
 
 
 def _is_local_path(model_id):
@@ -171,10 +240,11 @@ def _local_model_exists(model_id):
 def get_config():
     config_path = PROJECT_DIR / 'benchmark.json'
     if not config_path.exists():
-        # Create default config
+        # Create default config with detected devices
+        default_config = _build_default_config()
         with open(config_path, 'w', encoding='utf-8') as f:
-            json.dump(DEFAULT_CONFIG, f, indent=2, ensure_ascii=False)
-        return jsonify(DEFAULT_CONFIG)
+            json.dump(default_config, f, indent=2, ensure_ascii=False)
+        return jsonify(default_config)
     with open(config_path, 'r') as f:
         config = json.load(f)
     # Filter out local-path models that don't exist on disk

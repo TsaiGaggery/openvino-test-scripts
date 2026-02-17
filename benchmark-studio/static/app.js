@@ -7,6 +7,7 @@ let devices = [];            // Detected devices
 let benchmarkRunning = false;
 let speedChart = null;
 let loadTimeChart = null;
+let powerChart = null;
 const isElectron = typeof window.electronAPI !== 'undefined';
 
 // ─── API Helpers ────────────────────────────────────────────────────────────
@@ -244,6 +245,10 @@ function renderHFResults(results) {
             </div>
         `;
     }).join('');
+
+    // Re-apply the active filter tab
+    const activeFilter = document.querySelector('.filter-tab.active')?.dataset.filter || 'all';
+    if (activeFilter !== 'all') filterHFResults(activeFilter);
 }
 
 function filterHFResults(filter) {
@@ -307,6 +312,67 @@ function loadSettings() {
 
     // Prompts
     renderPrompts(bc.test_prompts || []);
+
+    // HF token status
+    loadHfTokenStatus();
+}
+
+// ─── HF Token ───────────────────────────────────────────────────────────────
+
+async function loadHfTokenStatus() {
+    try {
+        const data = await api('/api/hf-token/status');
+        const statusEl = document.getElementById('hfTokenStatus');
+        const input = document.getElementById('hfTokenInput');
+
+        if (data.configured) {
+            const sourceLabel = { env: 'environment variable', saved: 'saved token', ui: 'session override' }[data.source] || data.source;
+            statusEl.innerHTML = `<span style="color: var(--success-color);">Token configured</span> (source: ${sourceLabel}, ${data.masked})`;
+            input.placeholder = data.masked;
+            input.value = '';
+        } else {
+            statusEl.textContent = 'No token configured';
+            input.placeholder = 'hf_...';
+        }
+    } catch (e) {
+        console.error('Failed to load HF token status:', e);
+    }
+}
+
+async function saveHfToken() {
+    const input = document.getElementById('hfTokenInput');
+    const token = input.value.trim();
+    if (!token) {
+        showToast('Enter a token first', 'error');
+        return;
+    }
+    try {
+        const result = await api('/api/hf-token', {
+            method: 'POST',
+            body: JSON.stringify({ token }),
+        });
+        if (result.status === 'success') {
+            showToast(result.message || 'Token saved', 'success');
+            input.value = '';
+            await loadHfTokenStatus();
+        } else {
+            showToast(result.message || 'Failed to save token', 'error');
+        }
+    } catch (e) {
+        showToast('Failed to save token', 'error');
+    }
+}
+
+async function clearHfToken() {
+    try {
+        const result = await api('/api/hf-token', { method: 'DELETE' });
+        if (result.status === 'success') {
+            showToast('Token cleared', 'info');
+            await loadHfTokenStatus();
+        }
+    } catch (e) {
+        showToast('Failed to clear token', 'error');
+    }
 }
 
 function renderDeviceCheckboxes(selectedDevices) {
@@ -396,19 +462,39 @@ function setupSettingsListeners() {
         await saveConfig();
         showToast('Settings saved', 'success');
     });
+
+    // HF Token
+    document.getElementById('hfTokenSaveBtn').addEventListener('click', saveHfToken);
+    document.getElementById('hfTokenClearBtn').addEventListener('click', clearHfToken);
+    document.getElementById('hfTokenInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveHfToken();
+    });
+    document.getElementById('hfTokenToggleVisibility').addEventListener('click', () => {
+        const input = document.getElementById('hfTokenInput');
+        const isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+        const icon = document.getElementById('hfTokenEyeIcon');
+        if (isPassword) {
+            icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+        } else {
+            icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+        }
+    });
 }
 
 function collectSettings() {
     if (!config.benchmark_config) config.benchmark_config = {};
     const bc = config.benchmark_config;
 
-    // Only collect from DOM if the Settings tab has been rendered
-    const hasDeviceCheckboxes = document.querySelectorAll('#deviceCheckboxes .device-checkbox').length > 0;
-    if (!hasDeviceCheckboxes) return;
+    // Only collect from DOM if the Settings tab has been rendered,
+    // otherwise we'd overwrite config values with empty arrays
+    // because the checkboxes/sliders don't exist in the DOM yet.
+    const settingsRendered = document.querySelectorAll('#deviceCheckboxes input[type="checkbox"]').length > 0;
+    if (!settingsRendered) return;
 
     // Devices
     const selectedDevices = [];
-    document.querySelectorAll('#deviceCheckboxes input:checked').forEach(input => {
+    document.querySelectorAll('#deviceCheckboxes input[type="checkbox"]:checked').forEach(input => {
         const label = input.closest('.device-checkbox');
         selectedDevices.push(label.dataset.device);
     });
@@ -619,7 +705,10 @@ function sortResultsTable(key, thElement) {
     });
     thElement.textContent += currentSortAsc ? ' ▲' : ' ▼';
 
-    const colIndex = { model: 0, device: 1, speed: 2, load: 3, avg: 4, tokens: 5 }[key];
+    // Find column index by matching data-sort attribute
+    const headers = Array.from(document.querySelectorAll('#resultsTable th[data-sort]'));
+    const colIndex = headers.findIndex(th => th.dataset.sort === key);
+    if (colIndex < 0) return;
     const isNumeric = colIndex >= 2;
 
     rows.sort((a, b) => {
@@ -703,6 +792,7 @@ function renderResults(data) {
     // Charts
     renderSpeedChart(data);
     renderLoadTimeChart(data);
+    renderPowerChart(data);
 
     // Table
     renderResultsTable(data);
@@ -752,6 +842,53 @@ function renderLoadTimeChart(data) {
     });
 }
 
+function renderPowerChart(data) {
+    const card = document.getElementById('powerChartCard');
+    const results = data.results || {};
+
+    // Check if any result has power data
+    let hasPower = false;
+    for (const deviceResults of Object.values(results)) {
+        for (const m of Object.values(deviceResults)) {
+            if (m.power && Object.keys(m.power).length > 0) {
+                hasPower = true;
+                break;
+            }
+        }
+        if (hasPower) break;
+    }
+
+    if (!hasPower) {
+        card.style.display = 'none';
+        return;
+    }
+    card.style.display = '';
+
+    const ctx = document.getElementById('powerChart').getContext('2d');
+    if (powerChart) powerChart.destroy();
+
+    const models = Object.keys(results);
+    const allDevices = data.devices_tested || [];
+
+    const datasets = allDevices.map(device => ({
+        label: device,
+        data: models.map(m => {
+            const power = results[m]?.[device]?.power || {};
+            const pkg = power['package-0'] || power['psys'] || {};
+            return pkg.avg_watts || 0;
+        }),
+        backgroundColor: DEVICE_COLORS[device]?.bg || 'rgba(150,150,150,0.7)',
+        borderColor: DEVICE_COLORS[device]?.border || '#999',
+        borderWidth: 1,
+    }));
+
+    powerChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: models, datasets },
+        options: chartOptions('Watts'),
+    });
+}
+
 function chartOptions(yLabel) {
     return {
         responsive: true,
@@ -772,8 +909,44 @@ function chartOptions(yLabel) {
 
 function renderResultsTable(data) {
     const tbody = document.getElementById('resultsTableBody');
+    const thead = document.querySelector('#resultsTable thead tr');
     const rows = [];
     let maxSpeed = 0;
+
+    // Detect power domains across all results
+    const powerDomains = [];
+    let hasPower = false;
+    for (const deviceResults of Object.values(data.results || {})) {
+        for (const m of Object.values(deviceResults)) {
+            if (m.power) {
+                for (const d of Object.keys(m.power)) {
+                    hasPower = true;
+                    if (!powerDomains.includes(d)) powerDomains.push(d);
+                }
+            }
+        }
+    }
+
+    // Rebuild header with power columns
+    let headerHtml = `
+        <th data-sort="model">Model</th>
+        <th data-sort="device">Device</th>
+        <th data-sort="speed">Speed (tok/s)</th>
+        <th data-sort="load">Load Time (s)</th>
+        <th data-sort="avg">Avg Time (s)</th>
+        <th data-sort="tokens">Total Tokens</th>`;
+    for (const d of powerDomains) {
+        headerHtml += `<th data-sort="power_${d}">${d} (W)</th>`;
+    }
+    if (hasPower) {
+        headerHtml += `<th data-sort="tokj">tok/J</th>`;
+    }
+    thead.innerHTML = headerHtml;
+
+    // Re-attach sort listeners
+    thead.querySelectorAll('th[data-sort]').forEach(th => {
+        th.addEventListener('click', () => sortResultsTable(th.dataset.sort, th));
+    });
 
     for (const [model, deviceResults] of Object.entries(data.results || {})) {
         for (const [device, m] of Object.entries(deviceResults)) {
@@ -784,7 +957,20 @@ function renderResultsTable(data) {
 
     rows.sort((a, b) => b.avg_speed - a.avg_speed);
 
-    tbody.innerHTML = rows.map(r => `
+    tbody.innerHTML = rows.map(r => {
+        const power = r.power || {};
+        let powerCells = '';
+        let pkgWatts = null;
+        for (const d of powerDomains) {
+            const w = power[d]?.avg_watts;
+            powerCells += `<td>${w != null ? w.toFixed(1) : '-'}</td>`;
+            if ((d === 'package-0' || d === 'psys') && w != null) pkgWatts = w;
+        }
+        if (hasPower) {
+            const tokJ = pkgWatts && pkgWatts > 0 ? (r.avg_speed / pkgWatts).toFixed(2) : '-';
+            powerCells += `<td>${tokJ}</td>`;
+        }
+        return `
         <tr class="${r.avg_speed === maxSpeed ? 'best-row' : ''}">
             <td>${escapeHtml(r.model)}</td>
             <td><span class="badge-device badge-${r.device.toLowerCase()}">${r.device}</span></td>
@@ -792,8 +978,9 @@ function renderResultsTable(data) {
             <td>${r.load_time?.toFixed(2) || '-'}</td>
             <td>${r.avg_time?.toFixed(2) || '-'}</td>
             <td>${r.total_tokens || '-'}</td>
-        </tr>
-    `).join('');
+            ${powerCells}
+        </tr>`;
+    }).join('');
 }
 
 // ─── Config Persistence ─────────────────────────────────────────────────────
