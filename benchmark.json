@@ -1,41 +1,5 @@
 {
   "models": [
-    {
-      "name": "Qwen2.5-3B-Instruct_int4_sym_group128_bp_none_dyn_stateful",
-      "model_id": "~/openvino-web/models/Qwen2.5-3B-Instruct_int4_sym_group128_bp_none_dyn_stateful",
-      "size": "3B",
-      "quantization": "INT4",
-      "recommended_devices": ["GPU", "NPU", "CPU"],
-      "description": "Qwen2.5-3B-Instruct_int4_sym_group128_bp_none_dyn_stateful",
-      "enabled": true
-    },
-    {
-      "name": "Llama-2-7b-chat-hf_int4_sym_group-1_dyn_stateful",
-      "model_id": "~/openvino-web/models/Llama-2-7b-chat-hf_int4_sym_group-1_dyn_stateful",
-      "size": "7B",
-      "quantization": "INT4",
-      "recommended_devices": ["GPU", "NPU", "CPU"],
-      "description": "Llama-2-7b-chat-hf_int4_sym_group-1_dyn_stateful",
-      "enabled": true
-    },
-    {
-      "name": "Google-Gemma-2-2B-it_int4_sym_group128_dyn_stateful",
-      "model_id": "~/openvino-web/models/Google-Gemma-2-2B-it_int4_sym_group128_dyn_stateful",
-      "size": "2B",
-      "quantization": "INT4",
-      "recommended_devices": ["NPU", "GPU", "CPU"],
-      "description": "Google-Gemma-2-2B-it_int4_sym_group128_dyn_stateful",
-      "enabled": true
-    },
-    {
-      "name": "Qwen2.5-7B-Instruct_int4_sym_group128_dyn_stateful",
-      "model_id": "~/openvino-web/models/Qwen2.5-7B-Instruct_int4_sym_group128_dyn_stateful",
-      "size": "7B",
-      "quantization": "INT4",
-      "recommended_devices": ["GPU", "NPU", "CPU"],
-      "description": "Qwen2.5-7B-Instruct_int4_sym_group128_dyn_stateful",
-      "enabled": true
-    }
   ],
   "benchmark_config": {
     "test_prompts": [

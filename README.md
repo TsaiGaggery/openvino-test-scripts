@@ -15,6 +15,8 @@ Benchmark and compare LLM models across hardware devices (CPU, GPU, NPU) using O
 ### Install Python dependencies
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -48,7 +50,7 @@ Then open http://localhost:8085 in your browser.
 **Option 2 — Desktop app** (Electron):
 ```bash
 cd benchmark-studio
-npm start
+npm start -- --no-sandbox
 ```
 
 ### What the UI provides
